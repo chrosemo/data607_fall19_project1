@@ -1,0 +1,121 @@
+---
+title: "Fall 2019 - Data 607 - Project 1"
+author: "C. Rosemond 092219"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<br>
+
+### Summary
+
+The project task is to generate a .CSV file from a text file containing chess tournament results. The text file and resulting .CSV file are available [here](https://github.com/chrosemo/data607_fall19_project1).
+
+<br>
+
+### Reading in the text file
+
+After loading the stringr package, I read in the file directly from my GitHub repository and as a character vector.
+
+```{r read1, eval=TRUE, warning=FALSE}
+library(stringr)
+chess <- readLines('https://raw.githubusercontent.com/chrosemo/data607_fall19_project1/master/tournamentinfo.txt')
+head(chess, 10)
+```
+
+<br>
+
+I then remove the label rows as well as all lines consisting solely of "-" characters.
+
+```{r read2, eval=TRUE}
+chess <- chess[-c(1:3, seq(1,length(chess), 3))]
+head(chess)
+```
+
+<br>
+
+Noting how the data are structured, I create separate subset vectors for the first rows (number_line) and second rows (state_line), respectively.
+
+```{r read3, eval=TRUE}
+number_line <- chess[c(seq(1,length(chess), 2))]
+state_line <- chess[c(seq(2,length(chess), 2))]
+head(number_line)
+head(state_line)
+```
+
+<br>
+<br>
+
+### Extracting values from the character vectors
+
+I use the two subsets to extract values for each player's number, name, state, tournament point total, and pre-tournament rating as well as the numbers of each of that player's opponents.
+
+```{r extract1, eval=TRUE}
+number <- as.numeric(str_extract(number_line, "[0-9]{1,2}"))
+name <- str_trim(str_replace_all(str_extract(number_line, "\\|.[[A-z].,' ']{2,}\\|"), "[|]", ""), side="both") 
+state <- str_extract(state_line, "[A-Z]{2,2}")
+point_total <- as.numeric(str_extract(number_line, "[0-9]\\.[0-9]{1,1}"))
+pre_rating <- as.numeric(str_replace(str_extract(state_line, "R:.{5}"), "R: ", ""))
+opps <- lapply(str_extract_all(str_sub(number_line, start=51), "[0-9]{1,2}"), as.numeric)
+```
+
+<br>
+
+```{r extract2, eval=TRUE}
+head(number)
+tail(name)
+head(state)
+tail(point_total)
+head(pre_rating)
+tail(opps)
+```
+
+<br>
+
+To calculate the average pre-tournament rating of a player's opponents, I first use nested apply functions to match each player's opponent numbers with the respective opponent's pre-tournament rating. I then calculate the average pre-rating using another apply function and convert the results to integers, which rounds the values to whole numbers.
+
+```{r extract3, eval=TRUE}
+opp_ratings <- lapply(opps, function(i) {
+  sapply(i, function(j) {
+    j <- pre_rating[number == j]
+  })
+})
+avg_opp_rating <- as.integer(sapply(opp_ratings, mean))
+head(opp_ratings)
+head(avg_opp_rating)
+```
+
+<br>
+<br>
+
+### Creating a data frame and exporting it to .CSV format
+
+I create a data frame called tournament_df using the name (labeled "player_name"), state ("player_state"), point_total ("player_point_total), pre_rating ("player_pre_rating"), and avg_opp_rating ("avg_opp_pre_rating") vectors.
+
+```{r dataframe1, eval=TRUE}
+tournament_df <- data.frame("player_name" = name,
+                            "player_state" = state,
+                            "player_point_total" = point_total,
+                            "player_pre_rating" = pre_rating,
+                            "avg_opp_pre_rating" = avg_opp_rating)
+head(tournament_df)
+```
+
+<br>
+
+Finally, I export the data frame to .CSV format.
+
+```{r dataframe2, eval=TRUE}
+write.csv(tournament_df, file = "tournament_df.csv", row.names=FALSE)
+```
+
+<br>
+<br>
+
+##### Sources
+"Basic Regular Expressions in R, Cheat Sheet". RStudio. Accessed 091919 from https://www.rstudio.com/wp-content/uploads/2016/09/RegExCheatsheet.pdf;
+<br>
+"Chapter 8". Automated Data Collection with R. Accessed 091919 from http://kek.ksu.ru/eos/WM/AutDataCollectR.pdf
